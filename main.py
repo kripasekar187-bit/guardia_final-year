@@ -1,185 +1,98 @@
+"""
+main.py
+-------
+GUARDIA entry point — run with:  python main.py
+
+This file only orchestrates. All logic lives in the guardia/ package:
+  - guardia/config.py     → constants & paths
+  - guardia/detector.py   → pose, fall, inactivity
+  - guardia/night_mode.py → dark environment adjustment
+  - guardia/alerts.py     → voice, alarm, logging
+"""
+
 import cv2
-import mediapipe as mp
-import numpy as np
 import time
-import pyttsx3
-import threading
-import winsound
 
-# -------------------- VOICE ENGINE --------------------
-engine = pyttsx3.init()
-engine.setProperty('rate', 150)
-
-def speak_async(text):
-    def run():
-        engine.say(text)
-        engine.runAndWait()
-    threading.Thread(target=run).start()
-
-# -------------------- ALARM FUNCTION --------------------
-def play_alarm():
-    for i in range(5):
-        winsound.Beep(1200, 800)
-
-# -------------------- NIGHT MODE FUNCTION --------------------
-def adjust_brightness(frame):
-
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    brightness = np.mean(gray)
-
-    if brightness < 60:   # dark environment
-
-        alpha = 1.8   # contrast
-        beta = 40     # brightness
-
-        frame = cv2.convertScaleAbs(frame, alpha=alpha, beta=beta)
-
-        cv2.putText(frame,
-                    "NIGHT MODE ACTIVE",
-                    (50,150),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.8,
-                    (255,255,0),
-                    2)
-
-    return frame
+from guardia.config   import CAMERA_INDEX, ALERT_RESPONSE_TIMEOUT
+from guardia.detector import GuardiaDetector
+from guardia.night_mode import adjust_brightness
+from guardia.alerts   import speak_async, play_alarm, log_alert
 
 
-# -------------------- MEDIAPIPE SETUP --------------------
-mp_pose = mp.solutions.pose
-pose = mp_pose.Pose(
-    min_detection_confidence=0.5,
-    min_tracking_confidence=0.5
-)
+def main():
+    # ── Camera setup ───────────────────────────────────────────────────────
+    cap = cv2.VideoCapture(CAMERA_INDEX)
+    if not cap.isOpened():
+        print("Camera not accessible")
+        return
 
-mp_draw = mp.solutions.drawing_utils
+    detector = GuardiaDetector()
 
-# -------------------- CAMERA --------------------
-cap = cv2.VideoCapture(0)
+    alert_triggered = False
+    alert_time      = 0.0
 
-if not cap.isOpened():
-    print("Camera not accessible")
-    exit()
+    print("GUARDIA Monitoring Started — press Q to quit")
 
-# -------------------- VARIABLES --------------------
-prev_head_y = None
-fall_detected = False
-alert_triggered = False
-alert_time = 0
+    # ── Main loop ──────────────────────────────────────────────────────────
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
 
-last_movement_time = time.time()
+        frame = adjust_brightness(frame)
+        frame = cv2.flip(frame, 1)
 
-INACTIVITY_THRESHOLD = 15
-FALL_THRESHOLD = 0.12
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results   = detector.process(frame_rgb)
 
-print("GUARDIA Monitoring Started")
+        if results.pose_landmarks:
+            landmarks = results.pose_landmarks.landmark
 
-# -------------------- MAIN LOOP --------------------
-while True:
+            detector.check_fall(landmarks)
+            detector.check_inactivity(landmarks)
+            detector.draw_landmarks(frame, results.pose_landmarks)
 
-    ret, frame = cap.read()
-    if not ret:
-        break
+            # ── Trigger alert on first detection ──────────────────────────
+            if detector.emergency and not alert_triggered:
+                print("⚠ EMERGENCY DETECTED")
+                speak_async("Are you okay?")
+                alert_triggered = True
+                alert_time      = time.time()
 
-    # Apply Night Mode
-    frame = adjust_brightness(frame)
+        # ── Overlay emergency text ─────────────────────────────────────────
+        if alert_triggered:
+            cv2.putText(frame, "EMERGENCY DETECTED", (50, 50),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
+            cv2.putText(frame, "PRESS Y IF OK", (50, 100),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
 
-    frame = cv2.flip(frame, 1)
+        cv2.imshow("GUARDIA - Elderly Monitoring", frame)
 
-    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    results = pose.process(frame_rgb)
+        # ── Keyboard input ─────────────────────────────────────────────────
+        key = cv2.waitKey(1) & 0xFF
 
-    if results.pose_landmarks:
+        if key == ord('y') and alert_triggered:
+            print("User responded. Alert cancelled.")
+            speak_async("Okay")
+            alert_triggered = False
+            detector.reset()
 
-        landmarks = results.pose_landmarks.landmark
+        # ── No response → escalate ─────────────────────────────────────────
+        if alert_triggered and (time.time() - alert_time > ALERT_RESPONSE_TIMEOUT):
+            print("ALERT: Caregiver Notified")
+            speak_async("Emergency detected. Please help.")
+            play_alarm()
+            log_alert(frame)
+            alert_triggered = False
+            detector.reset()
 
-        # -------- FALL DETECTION --------
-        head_y = landmarks[0].y
+        if key == ord('q'):
+            break
 
-        if prev_head_y is not None:
-            drop = head_y - prev_head_y
-            if drop > FALL_THRESHOLD:
-                fall_detected = True
+    # ── Cleanup ────────────────────────────────────────────────────────────
+    cap.release()
+    cv2.destroyAllWindows()
 
-        prev_head_y = head_y
 
-        # -------- MOVEMENT DETECTION --------
-        pose_array = np.array([[lm.x, lm.y] for lm in landmarks])
-        movement = np.linalg.norm(pose_array - pose_array.mean(axis=0))
-
-        if movement > 0.02:
-            last_movement_time = time.time()
-
-        inactivity_time = time.time() - last_movement_time
-
-        # -------- EMERGENCY DETECT --------
-        if (fall_detected or inactivity_time > INACTIVITY_THRESHOLD) and not alert_triggered:
-
-            print("⚠ EMERGENCY DETECTED")
-            speak_async("Are you okay?")
-
-            alert_triggered = True
-            alert_time = time.time()
-
-        mp_draw.draw_landmarks(
-            frame,
-            results.pose_landmarks,
-            mp_pose.POSE_CONNECTIONS
-        )
-
-    # -------- SHOW EMERGENCY TEXT --------
-    if alert_triggered:
-        cv2.putText(frame,
-                    "EMERGENCY DETECTED",
-                    (50, 50),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    (0, 0, 255),
-                    3)
-
-        cv2.putText(frame,
-                    "PRESS Y IF OK",
-                    (50, 100),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    (0, 0, 255),
-                    3)
-
-    cv2.imshow("GUARDIA - Elderly Monitoring", frame)
-
-    # -------- KEYBOARD INPUT --------
-    key = cv2.waitKey(1) & 0xFF
-
-    if key == ord('y') and alert_triggered:
-
-        print("User responded. Alert cancelled")
-        speak_async("Okay")
-
-        alert_triggered = False
-        fall_detected = False
-        last_movement_time = time.time()
-
-    # -------- NO RESPONSE CASE --------
-    if alert_triggered and (time.time() - alert_time > 7):
-
-        print("🚨 ALERT: Caregiver Notified")
-
-        speak_async("Emergency detected. Please help.")
-
-        play_alarm()
-
-        cv2.imwrite("fall_event.jpg", frame)
-
-        with open("alerts.txt", "a") as f:
-            f.write("Emergency detected at " + time.ctime() + "\n")
-
-        alert_triggered = False
-        fall_detected = False
-        last_movement_time = time.time()
-
-    if key == ord('q'):
-        break
-
-# -------------------- CLEANUP --------------------
-cap.release()
-cv2.destroyAllWindows()
+if __name__ == "__main__":
+    main()
