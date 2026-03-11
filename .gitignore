@@ -11,9 +11,15 @@ __pycache__/
 
 # Logs and generated files
 logs/fall_event.jpg
+logs/alerts.txt
 
-# Model files (large binaries — optionally exclude)
-# models/*.h5
+# Raw UP-Fall dataset — too large, regenerated via scripts
+data/upfall/
+data/SUBJECT*.zip
+
+# Processed sequences — regenerated from raw data via prepare_data.py
+data/X.npy
+data/y.npy
 
 # IDE
 .vscode/

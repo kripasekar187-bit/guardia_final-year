@@ -1,113 +1,119 @@
-"""
-guardia/detector.py
--------------------
-GuardiaDetector — wraps MediaPipe Pose and owns all detection state.
-
-WHY A CLASS?
-  The original main.py used module-level variables (prev_head_y, fall_detected,
-  last_movement_time) that got tangled with display and alert code.
-  A class bundles the state it needs with the methods that use it, making
-  each piece independently readable and testable.
-"""
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 import time
+from collections import deque
+
 import numpy as np
 import mediapipe as mp
+import joblib
+from tensorflow.keras.models import load_model
 
 from guardia.config import (
     POSE_DETECTION_CONFIDENCE,
     POSE_TRACKING_CONFIDENCE,
-    FALL_THRESHOLD,
-    MOVEMENT_THRESHOLD,
     INACTIVITY_THRESHOLD,
+    MODEL_PATH,
+    SCALER_PATH,
 )
 
-# MediaPipe helpers (module-level — these are stateless utilities)
 _mp_pose = mp.solutions.pose
 _mp_draw  = mp.solutions.drawing_utils
 
+# labels from training
+_LABELS = ["normal", "fall", "inactive"]
+
 
 class GuardiaDetector:
-    """
-    Handles pose estimation, fall detection, and inactivity monitoring.
-
-    Usage:
-        detector = GuardiaDetector()
-        results  = detector.process(frame_rgb)
-
-        if results.pose_landmarks:
-            detector.check_fall(results.pose_landmarks.landmark)
-            inactivity = detector.check_inactivity(results.pose_landmarks.landmark)
-    """
 
     def __init__(self):
         self.pose = _mp_pose.Pose(
             min_detection_confidence=POSE_DETECTION_CONFIDENCE,
             min_tracking_confidence=POSE_TRACKING_CONFIDENCE,
         )
+
+        try:
+            self._model  = load_model(MODEL_PATH, compile=False)
+            self._scaler = joblib.load(SCALER_PATH)
+            print("Model loaded")
+        except Exception as e:
+            print(f"Model not found, falling back to heuristic: {e}")
+            self._model  = None
+            self._scaler = None
+
+        self._frame_buffer    = deque(maxlen=30)
+        self._prediction      = "normal"
+        self._confirm_counter = 0
+        self._CONFIRM_NEEDED  = 5     # consecutive frames before alert
+        self._CONFIDENCE_MIN  = 0.65  # minimum model confidence
         self._reset_state()
-
-    # ── Public properties ──────────────────────────────────────────────────
-
-    @property
-    def fall_detected(self):
-        return self._fall_detected
-
-    @property
-    def inactivity_seconds(self):
-        return time.time() - self._last_movement_time
 
     @property
     def emergency(self):
-        """True when a fall OR prolonged inactivity is detected."""
-        return self._fall_detected or self.inactivity_seconds > INACTIVITY_THRESHOLD
+        return self._prediction in ("fall", "inactive")
 
-    # ── Core methods ───────────────────────────────────────────────────────
+    @property
+    def prediction(self):
+        return self._prediction
 
     def process(self, frame_rgb):
-        """Run MediaPipe on an RGB frame. Returns a pose results object."""
         return self.pose.process(frame_rgb)
 
-    def check_fall(self, landmarks):
-        """
-        Compare the head landmark's Y position between consecutive frames.
-        A sudden downward drop (increase in Y) flags a fall.
+    def update(self, landmarks):
+        frame_features = np.array([[lm.x, lm.y, lm.z, lm.visibility] for lm in landmarks]).flatten()
+        self._frame_buffer.append(frame_features)
 
-        Landmark Y is normalised 0-1 (0 = top of frame, 1 = bottom),
-        so a large positive delta means the head moved toward the floor fast.
-        """
-        head_y = landmarks[0].y
-        if self._prev_head_y is not None:
-            drop = head_y - self._prev_head_y
-            if drop > FALL_THRESHOLD:
-                self._fall_detected = True
-        self._prev_head_y = head_y
+        if len(self._frame_buffer) == 30:
+            if self._model is not None:
+                self._predict_ml()
+            else:
+                self._predict_heuristic(landmarks)
 
-    def check_inactivity(self, landmarks):
-        """
-        Compute overall pose movement by measuring how spread the landmarks
-        are around their centroid. If spread exceeds the threshold the person
-        is considered active and the inactivity timer resets.
+    def _predict_ml(self):
+        X = np.array(self._frame_buffer)
+        X = self._scaler.transform(X)
+        X = X[np.newaxis, ...]
+        probs = self._model.predict(X, verbose=0)[0]
+        confidence = np.max(probs)
+        label      = _LABELS[np.argmax(probs)]
 
-        Returns the number of seconds since last detected movement.
-        """
+        if label != "normal" and confidence >= self._CONFIDENCE_MIN:
+            self._confirm_counter += 1
+        else:
+            self._confirm_counter = 0
+            self._prediction = "normal"
+
+        if self._confirm_counter >= self._CONFIRM_NEEDED:
+            self._prediction = label
+
+    def _predict_heuristic(self, landmarks):
+        # fallback if model unavailable
         pose_array = np.array([[lm.x, lm.y] for lm in landmarks])
         movement   = np.linalg.norm(pose_array - pose_array.mean(axis=0))
-        if movement > MOVEMENT_THRESHOLD:
+        if movement < 0.02:
+            if time.time() - self._last_movement_time > INACTIVITY_THRESHOLD:
+                self._prediction = "inactive"
+                return
+        else:
             self._last_movement_time = time.time()
-        return self.inactivity_seconds
+
+        head_y = landmarks[0].y
+        if self._prev_head_y is not None and head_y - self._prev_head_y > 0.12:
+            self._prediction = "fall"
+        else:
+            self._prediction = "normal"
+        self._prev_head_y = head_y
 
     def draw_landmarks(self, frame, pose_landmarks):
-        """Draw the skeleton overlay onto the frame (modifies in place)."""
         _mp_draw.draw_landmarks(frame, pose_landmarks, _mp_pose.POSE_CONNECTIONS)
 
     def reset(self):
-        """Call this after an alert is resolved to clear detection state."""
+        self._prediction      = "normal"
+        self._confirm_counter = 0
+        self._frame_buffer.clear()
         self._reset_state()
-
-    # ── Private ────────────────────────────────────────────────────────────
 
     def _reset_state(self):
         self._prev_head_y        = None
-        self._fall_detected      = False
         self._last_movement_time = time.time()
