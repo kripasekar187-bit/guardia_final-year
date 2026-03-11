@@ -10,6 +10,11 @@ This file only orchestrates. All logic lives in the guardia/ package:
   - guardia/alerts.py     → voice, alarm, logging
 """
 
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['GLOG_minloglevel'] = '2'
+
 import cv2
 import time
 

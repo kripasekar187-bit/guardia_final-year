@@ -1,0 +1,24 @@
+# Virtual environment — never commit this
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs and generated files
+logs/fall_event.jpg
+
+# Model files (large binaries — optionally exclude)
+# models/*.h5
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
