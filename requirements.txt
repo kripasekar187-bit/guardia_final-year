@@ -1,0 +1,8 @@
+# GUARDIA - Elderly Monitoring System
+# Install with:  pip install -r requirements.txt
+
+opencv-python
+mediapipe
+numpy
+pyttsx3
+tensorflow
