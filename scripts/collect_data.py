@@ -1,26 +1,16 @@
 """
-scripts/collect_data.py
------------------------
-Record pose keypoints from the webcam and save them as a .npy file.
+Record pose keypoints from the webcam and save as a .npy file.
 
-HOW TO USE:
+Usage:
   python scripts/collect_data.py
-
-  When prompted, enter one of:  fall / normal / inactive
-  Move in front of the camera for a few seconds, then press Q.
-  The recorded data is saved to:  data/{label}.npy
-
-HOW IT WORKS:
-  MediaPipe detects 33 body landmarks per frame.
-  Each landmark has x, y, z, and visibility — giving 33×4 = 132 values per frame.
-  We stack these into a 2D array (frames × 132) and save it.
+  Enter label: fall / normal / inactive
+  Move in front of the camera, then press Q.
+  Saves to: data/{label}.npy
 """
 
 import sys
 import os
 
-# ── Make sure the project root is on the Python path ──────────────────────
-# This lets us run the script from any directory.
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
@@ -46,8 +36,7 @@ while True:
     if not ret:
         break
 
-    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    results   = pose.process(frame_rgb)
+    results = pose.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
     if results.pose_landmarks:
         keypoints = []
@@ -62,7 +51,13 @@ while True:
 cap.release()
 cv2.destroyAllWindows()
 
-data = np.array(data)
+data     = np.array(data)
 out_path = os.path.join(DATA_DIR, f"{label}.npy")
+
+if os.path.exists(out_path):
+    existing = np.load(out_path)
+    data     = np.concatenate([existing, data])
+    print(f"Appended to existing data")
+
 np.save(out_path, data)
 print(f"Saved {data.shape} → {out_path}")
