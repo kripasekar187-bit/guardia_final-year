@@ -21,3 +21,4 @@ Emergency detected at Fri Mar 13 18:37:15 2026
 [2026-03-13 20:32:51] EMERGENCY DETECTED  —  persons=1  |  states={15: 'inactive'}
 [2026-03-13 20:54:24] EMERGENCY DETECTED  —  persons=3  |  states={2: 'normal', 8: 'emergency', 10: 'fallen_waiting'}
 [2026-03-13 21:04:55] EMERGENCY DETECTED  —  persons=2  |  states={1: 'normal', 5: 'emergency'}
+[2026-03-13 22:07:05] EMERGENCY DETECTED  —  persons=4  |  states={1: 'emergency', 3: 'fallen_waiting', 4: 'normal', 6: 'fallen_waiting'}
