@@ -31,3 +31,7 @@ Thumbs.db
 # Models (avoid committing large binaries)
 models/*.pt
 models/*.onnx
+
+# Allow specific models
+!models/yolov8n-pose.pt
+!models/yolov8n-pose.onnx
