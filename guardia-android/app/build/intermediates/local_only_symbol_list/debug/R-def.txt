@@ -1,0 +1,18 @@
+R_DEF: Internal format may change without notice
+local
+color black
+color c_accent
+color c_dark
+color c_green
+color c_orange
+color c_panel_bg
+color c_red
+color white
+drawable rounded_glass_panel
+id overlayView
+id previewView
+layout activity_main
+string app_name
+style Base.Theme.Guardia
+style Theme.Guardia
+style Theme.Guardia.NoActionBar

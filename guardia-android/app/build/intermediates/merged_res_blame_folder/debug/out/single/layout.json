@@ -1,0 +1,10 @@
+[
+    {
+        "merged": "com.guardia.fall_detector.app-mergeDebugResources-35:/layout/activity_main.xml",
+        "source": "com.guardia.fall_detector.app-main-38:/layout/activity_main.xml"
+    },
+    {
+        "merged": "C:\\Users\\NIPUN\\.gradle\\daemon\\8.5\\com.guardia.fall_detector.app-mergeDebugResources-35:\\layout\\activity_main.xml",
+        "source": "C:\\Users\\NIPUN\\.gradle\\daemon\\8.5\\com.guardia.fall_detector.app-main-38:\\layout\\activity_main.xml"
+    }
+]

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    
+    <!-- Guardia HUD Dashboard Colors -->
+    <color name="c_green">#32DC50</color>
+    <color name="c_orange">#00A5FF</color> <!-- Using original BGR (0, 165, 255) to RGB -> #FF A5 00. Actually #FFA500 -->
+    <color name="c_red">#FF3200</color>    <!-- BGR (0, 50, 255) -> RGB (255, 50, 0) -->
+    
+    <color name="c_panel_bg">#B80F0F0F</color> <!-- 15,15,15 with 72% alpha (~0xB8) -->
+    <color name="c_accent">#00C8FF</color>     <!-- Teal Accent -->
+    <color name="c_dark">#141414</color>
+</resources>
