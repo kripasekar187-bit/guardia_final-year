@@ -8,7 +8,7 @@ object Config {
     // SMS Alert (Twilio)
     const val ENABLE_SMS = false
     const val TWILIO_ACCOUNT_SID = "AC6121cafe191c4679edba98f34c79c237"
-    const val TWILIO_AUTH_TOKEN = "4f13aea5563ccb6eae163ed172c5ed84"
+    const val TWILIO_AUTH_TOKEN = "fc11cb4b70009b3b61e144c06a628392"
     const val TWILIO_FROM_NUMBER = "+18103775029"
     const val EMERGENCY_CONTACT_NUMBER = "+919778176499"
 
@@ -16,8 +16,11 @@ object Config {
     const val IMGBB_API_KEY = "4f832985f377cdfc85761ae927997a96"
 
     // WhatsApp Alert
-    const val ENABLE_WHATSAPP = false
-    const val WHATSAPP_TO_NUMBER = "whatsapp:+919778176499"
+    const val ENABLE_WHATSAPP = true
+    val WHATSAPP_TO_NUMBERS = listOf(
+        "whatsapp:+919778176499",
+        "whatsapp:+918921365016"
+    )
     const val WHATSAPP_FROM_NUMBER = "whatsapp:+14155238886"
 
     // Alarm Settings

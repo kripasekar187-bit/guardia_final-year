@@ -116,7 +116,9 @@ object AlertManager {
             dispatch(Config.TWILIO_FROM_NUMBER, Config.EMERGENCY_CONTACT_NUMBER)
         }
         if (Config.ENABLE_WHATSAPP) {
-            dispatch(Config.WHATSAPP_FROM_NUMBER, Config.WHATSAPP_TO_NUMBER)
+            for (number in Config.WHATSAPP_TO_NUMBERS) {
+                dispatch(Config.WHATSAPP_FROM_NUMBER, number)
+            }
         }
     }
 }

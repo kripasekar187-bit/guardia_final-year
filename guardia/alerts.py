@@ -32,7 +32,7 @@ from guardia.config import (
     EMERGENCY_CONTACT_NUMBER,
     IMGBB_API_KEY,
     ENABLE_WHATSAPP,
-    WHATSAPP_TO_NUMBER,
+    WHATSAPP_TO_NUMBERS,
     WHATSAPP_FROM_NUMBER,
 )
 
@@ -84,13 +84,17 @@ def send_external_alert(message_body: str, media_url: str = None) -> None:
 
             # Send WhatsApp
             if ENABLE_WHATSAPP:
-                client.messages.create(
-                    body=message_body,
-                    from_=WHATSAPP_FROM_NUMBER,
-                    to=WHATSAPP_TO_NUMBER,
-                    media_url=[media_url] if media_url else None
-                )
-                print(f"[GUARDIA WhatsApp] Alert sent to {WHATSAPP_TO_NUMBER}")
+                for number in WHATSAPP_TO_NUMBERS:
+                    try:
+                        client.messages.create(
+                            body=message_body,
+                            from_=WHATSAPP_FROM_NUMBER,
+                            to=number,
+                            media_url=[media_url] if media_url else None
+                        )
+                        print(f"[GUARDIA WhatsApp] Alert sent to {number}")
+                    except Exception as whatsapp_e:
+                        print(f"[GUARDIA WhatsApp error] Failed sending to {number}: {whatsapp_e}")
 
         except Exception as e:
             print(f"[GUARDIA External Alert error] {e}")

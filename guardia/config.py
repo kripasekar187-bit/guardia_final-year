@@ -91,7 +91,7 @@ ENABLE_SMS = True
 
 # Twilio Credentials
 TWILIO_ACCOUNT_SID = "AC6121cafe191c4679edba98f34c79c237"
-TWILIO_AUTH_TOKEN  = "4f13aea5563ccb6eae163ed172c5ed84"
+TWILIO_AUTH_TOKEN  = "fc11cb4b70009b3b61e144c06a628392"
 
 # Twilio Phone Number
 TWILIO_FROM_NUMBER = "+18103775029"
@@ -106,7 +106,10 @@ IMGBB_API_KEY = "4f832985f377cdfc85761ae927997a96"
 # --- WhatsApp Alert --------------------------------------------------
 # Enable this to send alerts via WhatsApp (requires Twilio Sandbox)
 ENABLE_WHATSAPP = True
-WHATSAPP_TO_NUMBER = "whatsapp:+919778176499"
+WHATSAPP_TO_NUMBERS = [
+    "whatsapp:+919778176499",  # Your number
+    "whatsapp:+918921365016",  # Her number
+]
 WHATSAPP_FROM_NUMBER = "whatsapp:+14155238886"  # Default Twilio Sandbox number
 
 # Number of alarm beeps to play during escalation.
