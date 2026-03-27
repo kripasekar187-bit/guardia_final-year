@@ -9,6 +9,7 @@ import threading
 import time
 import wave
 import tempfile
+from typing import Optional
 
 import cv2
 import requests
@@ -208,7 +209,7 @@ def stop_alarm() -> None:
 
 # --- Logging ---
 
-def log_alert(frame, metadata: dict | None = None) -> str | None:
+def log_alert(frame, metadata: Optional[dict] = None) -> Optional[str]:
     """Log alert event and save snapshot."""
     os.makedirs(LOGS_DIR, exist_ok=True)
 
